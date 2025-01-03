@@ -2,8 +2,6 @@ import os
 
 import requests
 
-PROXYCURL_API_KEY = os.getenv("PROXYCURL_API_KEY")
-
 
 def scrape_linkedin_profile(linkedin_url):
     """
@@ -16,10 +14,12 @@ def scrape_linkedin_profile(linkedin_url):
         dict: A dictionary containing the scraped data.
     """
 
+    proxycurl_api_key = os.getenv("PROXYCURL_API_KEY")
+
     response = requests.get(
         "https://nubela.co/proxycurl/api/v2/linkedin",
         params={"linkedin_profile_url": linkedin_url, "extra": "include"},
-        headers={"Authorization": "Bearer " + PROXYCURL_API_KEY},
+        headers={"Authorization": "Bearer " + proxycurl_api_key},
         timeout=20,
     )
     response.raise_for_status()
