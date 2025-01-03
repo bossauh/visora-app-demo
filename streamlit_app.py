@@ -6,10 +6,15 @@ from loguru import logger
 load_dotenv()
 
 
+import os
+
 import streamlit as st
 
 from services.linkedin_scraper import scrape_linkedin_profile
 from services.openai_service import generate_bot_response, generate_playbook
+
+# Log env variables
+logger.info(os.environ)
 
 # Set the page configuration
 st.set_page_config(
