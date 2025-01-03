@@ -76,7 +76,7 @@ def sidebar_section():
     # Form for inputting what to sell
     with st.sidebar.form("sell_form"):
         st.subheader("Selling Configuration")
-        sell_description = st.text_input(
+        sell_description = st.text_area(
             "What are you selling?",
             placeholder="Describe the product or service...",
             value=st.session_state.sell_description,
