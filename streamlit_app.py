@@ -1,16 +1,16 @@
+import pprint
+import time
+
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
 
-import logging
-import pprint
 
 import streamlit as st
 
 from services.linkedin_scraper import scrape_linkedin_profile
 from services.openai_service import generate_bot_response, generate_playbook
-
-logger = logging.getLogger()
 
 # Set the page configuration
 st.set_page_config(
@@ -42,6 +42,10 @@ def initialize_session():
         st.session_state.messaging_mode = "Lead Initiates Conversation"
     if "bot_initiated" not in st.session_state:
         st.session_state.bot_initiated = False
+    if "sdr_name" not in st.session_state:
+        st.session_state.sdr_name = ""
+    if "sdr_description" not in st.session_state:
+        st.session_state.sdr_description = ""
 
 
 # Show guide at the beginning
@@ -55,6 +59,7 @@ def show_guide():
 
             1. **Configure the Chatbot:**
                - In the sidebar, enter what you are selling and your calendar link.
+               - Provide the SDR's name and a description of their role/personality.
             2. **Generate a Playbook:**
                - Enter a LinkedIn profile URL (of the lead you want to target).
                - Click on **Generate Playbook** to create a personalized playbook.
@@ -77,6 +82,27 @@ def show_guide():
 # Sidebar for Configuration Inputs
 def sidebar_section():
     st.sidebar.header("🔧 Configure Your Chatbot")
+
+    # Form for inputting SDR details
+    with st.sidebar.form("sdr_form"):
+        st.subheader("SDR Configuration")
+        sdr_name = st.text_input(
+            "SDR Name",
+            placeholder="Enter the SDR's name...",
+            value=st.session_state.sdr_name,
+        )
+        sdr_description = st.text_area(
+            "SDR Description",
+            placeholder="Describe the SDR's role, personality, or style...",
+            value=st.session_state.sdr_description,
+        )
+        submit_sdr = st.form_submit_button("Save SDR Details")
+        if submit_sdr:
+            st.session_state.sdr_name = sdr_name
+            st.session_state.sdr_description = sdr_description
+            st.sidebar.success("SDR details saved!")
+
+    st.sidebar.markdown("---")  # Separator
 
     # Form for inputting what to sell
     with st.sidebar.form("sell_form"):
@@ -154,18 +180,20 @@ def sidebar_section():
     )
 
 
-# Display Playbook Modal (simulated with expander)
 def display_playbook():
-    if st.session_state.playbook_generated:
-        # Display the "View Playbook" button in the main area
-        if not st.session_state.show_playbook:
-            if st.button("📘 View Playbook"):
-                st.session_state.show_playbook = True
-
-    if st.session_state.show_playbook and st.session_state.playbook:
-        # Simulate modal using st.expander
-        with st.expander("📘 View Generated Playbook", expanded=True):
+    if st.session_state.playbook_generated and st.session_state.playbook:
+        with st.expander("📘 View Generated Playbook", expanded=False):
             st.json(st.session_state.playbook)
+
+
+def clear_chat_history():
+    # Reset the messages list
+    st.session_state.messages = []
+
+    # Reset bot initiation status if you're using it
+    st.session_state.bot_initiated = False
+
+    st.success("Chat history cleared!")
 
 
 # Chat Interface
@@ -177,51 +205,86 @@ def chat_interface():
         st.warning("Please generate a playbook first.")
         return  # Do not display chat interface until playbook is generated
 
+    clear_chat = st.button("🗑️ Clear Chat")
+    if clear_chat:
+        clear_chat_history()
+
     # If mode is "Bot Initiates Conversation" and bot hasn't initiated yet
     if (
         st.session_state.messaging_mode == "Bot Initiates Conversation"
         and not st.session_state.bot_initiated
     ):
         if st.button("🚀 Initiate First Contact"):
-            # Bot initiates conversation using the playbook
-            initial_message = f"{st.session_state.playbook['greeting']} {st.session_state.playbook['intro']} {st.session_state.playbook['value_proposition']} {st.session_state.playbook['call_to_action']}"
+            # Bot initiates conversation
+
+            # Display typing indicator
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                with message_placeholder.container():
+                    st.write("...")
+                    st.write("Bot is typing...")
+
+            # Generate bot response using OpenAI API
+            bot_response = generate_bot_response(
+                st.session_state.messages,
+                st.session_state.sell_description,
+                st.session_state.calendar_link,
+                st.session_state.playbook,
+                st.session_state.sdr_name,
+                st.session_state.sdr_description,
+                initial_contact=True,
+            )
+
+            # Replace typing indicator with actual message
+            message_placeholder.markdown(bot_response)
+
+            # Save bot response
             st.session_state.messages.append(
-                {"role": "assistant", "content": initial_message}
+                {"role": "assistant", "content": bot_response}
             )
             st.session_state.bot_initiated = True
-    elif (
-        st.session_state.messaging_mode == "Bot Initiates Conversation"
-        and st.session_state.bot_initiated
-    ):
-        # Bot has already initiated, proceed to chat
-        pass
+            st.rerun()
 
-    # Display chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    else:
+        # Display chat messages
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
-    # User input
-    user_input = st.chat_input("Type your message here...")
-    if user_input:
-        # Display user message
-        with st.chat_message("user"):
-            st.write(user_input)
+        # User input
+        user_input = st.chat_input("Type your message here...")
+        if user_input:
+            # Display user message
+            with st.chat_message("user"):
+                st.write(user_input)
 
-        # Update message history
-        st.session_state.messages.append({"role": "user", "content": user_input})
+            # Update message history
+            st.session_state.messages.append({"role": "user", "content": user_input})
 
-        # Generate bot response using OpenAI API
-        bot_response = generate_bot_response(
-            st.session_state.messages, st.session_state.playbook
-        )
+            # Display typing indicator
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                with message_placeholder.container():
+                    st.write("...")
+                    st.write("Bot is typing...")
 
-        # Display bot response
-        with st.chat_message("assistant"):
-            st.write(bot_response)
+            # Generate bot response using OpenAI API
+            bot_response = generate_bot_response(
+                st.session_state.messages,
+                st.session_state.sell_description,
+                st.session_state.calendar_link,
+                st.session_state.playbook,
+                st.session_state.sdr_name,
+                st.session_state.sdr_description,
+            )
 
-        # Save bot response
-        st.session_state.messages.append({"role": "assistant", "content": bot_response})
+            # Replace typing indicator with actual message
+            message_placeholder.markdown(bot_response)
+
+            # Save bot response
+            st.session_state.messages.append(
+                {"role": "assistant", "content": bot_response}
+            )
 
 
 # Main App Function

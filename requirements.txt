@@ -3,3 +3,4 @@ openai
 jinja2
 requests
 python-dotenv
+loguru
