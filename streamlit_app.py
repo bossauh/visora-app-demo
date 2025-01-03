@@ -1,5 +1,4 @@
 import pprint
-import time
 
 from dotenv import load_dotenv
 from loguru import logger
