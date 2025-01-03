@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import streamlit as st
 
 from services.linkedin_scraper import scrape_linkedin_profile
