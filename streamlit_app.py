@@ -2,10 +2,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import logging
+import pprint
+
 import streamlit as st
 
 from services.linkedin_scraper import scrape_linkedin_profile
 from services.openai_service import generate_bot_response, generate_playbook
+
+logger = logging.getLogger()
 
 # Set the page configuration
 st.set_page_config(
@@ -112,12 +117,25 @@ def sidebar_section():
                 with st.spinner("Generating playbook..."):
                     # Scrape LinkedIn profile
                     scraped_data = scrape_linkedin_profile(linkedin_url)
+
+                    logger.info(
+                        f"Successfully scraped LinkedIn Data from LinkedIn URL: {linkedin_url}"
+                    )
+                    logger.debug(
+                        f"Scraped the following LinkedIn Data: {pprint.pformat(scraped_data)}"
+                    )
+
                     # Generate playbook using OpenAI API
                     playbook = generate_playbook(
                         scraped_data,
                         st.session_state.sell_description,
                         st.session_state.calendar_link,
                     )
+
+                    logger.info(
+                        f"Successfully generated playbook from LinkedIn Profile: {linkedin_url}"
+                    )
+
                     st.session_state.playbook = playbook
                     st.session_state.playbook_generated = True
                     st.session_state.bot_initiated = False  # Reset bot initiation
